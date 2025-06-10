@@ -2,12 +2,20 @@ let mic;
 let audioStarted = false;
 let overlay;
 
-// Mandala parameters - will be randomized in setup
+// Mandala parameters
 let numSegments;
 let strokeW;
 let radii = [];
 let shapeTypes = [];
 let noiseSeeds = [];
+
+// --- Variables for continuous ambient baseline ---
+let smoothedVolume = 0;
+let ambientBaseline = 0;
+// We'll store the last couple of seconds of volume readings
+let volumeHistory = []; 
+// The number of frames to average over for the baseline (e.g., 2 seconds at 60fps)
+const baselineSampleCount = 120; 
 
 function setup() {
   createCanvas(windowWidth, windowHeight);
@@ -16,7 +24,8 @@ function setup() {
   background(0);
 
   // --- Create overlay ---
-  overlay = createDiv("Tap or click to start");
+  // The text is simplified as there's no longer a distinct calibration phase.
+  overlay = createDiv("Tap to start");
   overlay.id("overlay");
   overlay.mousePressed(startAudio);
 
@@ -32,7 +41,7 @@ function startAudio() {
   mic = new p5.AudioIn();
   mic.start();
   audioStarted = true;
-  overlay.remove();
+  overlay.remove(); // Remove overlay immediately
 }
 
 function generateMandalaParameters() {
@@ -47,30 +56,46 @@ function generateMandalaParameters() {
   let numLayers = floor(random(5, 15));
 
   for (let i = 0; i < numLayers; i++) {
-    // Progressively larger radii
     radii.push(random(50, min(width, height) * 0.45) * (i * 0.2 + 1));
-    // Random shape type for each layer
     shapeTypes.push(floor(random(4)));
-    // Noise seeds for organic movement
     noiseSeeds.push(random(1000));
   }
 }
 
 function draw() {
+  // Wait until audio is started
   if (!audioStarted) {
     return;
   }
-
+  
   background(0, 0, 0, 0.1); // Trail effect
   translate(width / 2, height / 2);
 
-  let vol = mic.getLevel();
+  // --- Continuously update the ambient baseline ---
+  let rawVol = mic.getLevel();
+  volumeHistory.push(rawVol);
+  
+  // Keep the history array at a fixed size by removing the oldest value
+  if (volumeHistory.length > baselineSampleCount) {
+    volumeHistory.shift();
+  }
+  
+  // Calculate the average of the recent volume history
+  if (volumeHistory.length > 0) {
+      let sum = volumeHistory.reduce((a, b) => a + b, 0);
+      let avg = sum / volumeHistory.length;
+      // Set the baseline slightly above the average to avoid reacting to tiny fluctuations
+      ambientBaseline = avg * 1.2;
+  }
+  
+  // Smooth the raw volume to make changes less jittery
+  smoothedVolume = lerp(smoothedVolume, rawVol, 0.2); 
+  // Calculate how much the current smoothed volume is above the dynamic ambient baseline
+  let volAboveBaseline = max(0, smoothedVolume - ambientBaseline);
 
-  // --- SENSITIVITY CHANGE ---
-  // The maximum input volume was changed from 0.1 to 0.05.
-  // This means a quieter sound will now produce a stronger visual effect.
-  let hue = map(vol, 0, 0.05, 180, 360);
-  let dynamicStrokeWeight = map(vol, 0, 0.05, strokeW, strokeW * 5, true);
+  // --- Map the volume ABOVE baseline to visuals ---
+  let hue = map(volAboveBaseline, 0, 0.1, 180, 360);
+  let dynamicStrokeWeight = map(volAboveBaseline, 0, 0.1, strokeW, strokeW * 7, true);
 
   strokeWeight(dynamicStrokeWeight);
   stroke(hue, 90, 90, 0.8);
@@ -125,19 +150,15 @@ function draw() {
   }
 }
 
-// --- p5.js built-in function that is called on any click ---
 function mousePressed() {
-  // We only want to regenerate AFTER the initial audio start
   if (audioStarted) {
-    // Use a new random seed for a completely new pattern
-    randomSeed(millis()); // Using millis() for a unique seed
-    noiseSeed(millis() + 1000); // And a new noise seed
+    randomSeed(millis());
+    noiseSeed(millis() + 1000);
     generateMandalaParameters();
   }
 }
 
 function windowResized() {
   resizeCanvas(windowWidth, windowHeight);
-  // Regenerate the mandala to fit the new size
   generateMandalaParameters();
 }
