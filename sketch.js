@@ -3,6 +3,8 @@ let mic;
 let audioStarted = false;
 let overlay;
 let globalRotation = 0;
+let palettes = [];
+let currentPalette = [];
 
 // --- Mandala Parameters ---
 let numSegments;
@@ -22,6 +24,9 @@ function setup() {
   overlay.id('overlay');
   overlay.mousePressed(startAudio);
 
+  // Generate the library of color palettes on startup.
+  generatePalettes();
+  // Set the initial mandala and its palette.
   randomSeed(Math.floor(random(10000)));
   noiseSeed(Math.floor(random(10000)));
   generateMandalaParameters();
@@ -46,13 +51,13 @@ function draw() {
   rotate(globalRotation);
   
   // --- Audio Interaction ---
+  // Volume now controls brightness and saturation for a less jarring effect.
   let vol = mic.getLevel();
-  let hue = map(vol, 0, 0.05, 180, 360);
+  let dynamicBrightness = map(vol, 0, 0.1, 60, 100, true);
+  let dynamicSaturation = map(vol, 0, 0.1, 70, 100, true);
   let dynamicStrokeWeight = map(vol, 0, 0.05, strokeW, strokeW * 5, true);
 
   // --- Drawing Logic: Layer by Layer ---
-  // This is the fundamental change to ensure perfect symmetry.
-  // We loop through each LAYER of the mandala first.
   for (let j = 0; j < radii.length; j++) {
     // Get all the properties for this specific layer.
     let r = radii[j];
@@ -60,20 +65,19 @@ function draw() {
     let noiseFactor = noise(frameCount * 0.005 + noiseSeeds[j]);
     let animatedRadius = r + map(noiseFactor, 0, 1, -20, 20);
     let finalRadius = animatedRadius * mouseScale;
-    let layerHue = (hue + j * 20) % 360;
+    
+    // Get the hue for this layer from the current, randomly selected palette.
+    let layerHue = currentPalette[j % currentPalette.length];
     let layerStrokeWeight = map(j, 0, radii.length, dynamicStrokeWeight, dynamicStrokeWeight * 0.5);
 
     // Then, for this single layer, we draw a shape in every SEGMENT.
     let angleStep = 360 / numSegments;
     for (let i = 0; i < numSegments; i++) {
-        // Isolate each segment's rotation.
         push();
         rotate(i * angleStep);
-        
-        // Draw the single, correctly-styled shape.
-        drawShape(type, finalRadius, r, layerHue, layerStrokeWeight);
-        
-        pop(); // Discard the rotation state.
+        // Pass all style parameters to the drawing function.
+        drawShape(type, finalRadius, r, layerHue, layerStrokeWeight, dynamicBrightness, dynamicSaturation);
+        pop();
     }
   }
 }
@@ -82,18 +86,18 @@ function draw() {
 
 /**
  * Draws a specific geometric shape. 
- * This function is now completely self-contained and sets its own styles.
+ * It now receives brightness and saturation for its styling.
  */
-function drawShape(type, finalRadius, r, layerHue, layerStrokeWeight) {
+function drawShape(type, finalRadius, r, layerHue, layerStrokeWeight, brightness, saturation) {
   // Each case is responsible for setting its own complete style.
   switch (type) {
     case 0: // Ellipses with center dot
       push();
         strokeWeight(layerStrokeWeight);
-        stroke(layerHue, 90, 90, 0.8);
+        stroke(layerHue, saturation, brightness, 0.8);
         noFill();
         ellipse(finalRadius, 0, r * 0.2, r * 0.5);
-        fill(layerHue, 90, 100);
+        fill(layerHue, saturation, brightness);
         noStroke();
         circle(finalRadius, 0, layerStrokeWeight);
       pop();
@@ -101,7 +105,7 @@ function drawShape(type, finalRadius, r, layerHue, layerStrokeWeight) {
     case 1: // Lines
       push();
         strokeWeight(layerStrokeWeight);
-        stroke(layerHue, 90, 90, 0.8);
+        stroke(layerHue, saturation, brightness, 0.8);
         noFill();
         line(0, 0, finalRadius, 0);
       pop();
@@ -109,7 +113,7 @@ function drawShape(type, finalRadius, r, layerHue, layerStrokeWeight) {
     case 2: // Arcs
       push();
         strokeWeight(layerStrokeWeight);
-        stroke(layerHue, 90, 90, 0.8);
+        stroke(layerHue, saturation, brightness, 0.8);
         noFill();
         arc(0, 0, finalRadius * 1.5, finalRadius * 1.5, -30, 30);
       pop();
@@ -117,7 +121,7 @@ function drawShape(type, finalRadius, r, layerHue, layerStrokeWeight) {
     case 3: // Symmetrical Bezier curves
       push();
         strokeWeight(layerStrokeWeight);
-        stroke(layerHue, 90, 90, 0.8);
+        stroke(layerHue, saturation, brightness, 0.8);
         noFill();
         let controlOffset = r * 0.5;
         bezier(0, 0, controlOffset, -controlOffset, finalRadius - controlOffset, -controlOffset, finalRadius, 0);
@@ -127,7 +131,7 @@ function drawShape(type, finalRadius, r, layerHue, layerStrokeWeight) {
     case 4: // Ornate Petal using curves
       push();
         strokeWeight(layerStrokeWeight);
-        stroke(layerHue, 90, 90, 0.8);
+        stroke(layerHue, saturation, brightness, 0.8);
         noFill();
         curve(finalRadius, 0, finalRadius * 0.9, 0, finalRadius * 0.8, finalRadius * 0.2, finalRadius * 0.7, finalRadius * 0.3);
         curve(finalRadius, 0, finalRadius * 0.9, 0, finalRadius * 0.8, -finalRadius * 0.2, finalRadius * 0.7, -finalRadius * 0.3);
@@ -136,19 +140,34 @@ function drawShape(type, finalRadius, r, layerHue, layerStrokeWeight) {
     case 5: // Triangle Fan
       push();
         noStroke();
-        fill(layerHue, 80, 90, 0.5);
+        fill(layerHue, saturation * 0.9, brightness, 0.5);
         triangle(0, 0, finalRadius, -10, finalRadius, 10);
       pop();
       break;
     case 6: // Single Dot
-      // FIX: This shape now draws a single dot at the correct position,
-      // instead of an entire circle of dots, ensuring symmetry.
       push();
         noStroke();
-        fill(layerHue, 90, 90, 0.7);
+        fill(layerHue, saturation, brightness, 0.7);
         circle(finalRadius, 0, layerStrokeWeight * 2);
       pop();
       break;
+  }
+}
+
+/**
+ * Procedurally generates 1000 harmonious color palettes.
+ */
+function generatePalettes() {
+  for (let i = 0; i < 1000; i++) {
+    let palette = [];
+    let baseHue = random(360);
+    let numColors = floor(random(3, 7)); // Palettes of 3 to 6 colors
+    for (let j = 0; j < numColors; j++) {
+      // Create analogous colors by taking small steps on the color wheel.
+      let newHue = (baseHue + j * random(15, 35)) % 360; 
+      palette.push(newHue);
+    }
+    palettes.push(palette);
   }
 }
 
@@ -160,10 +179,16 @@ function startAudio() {
   overlay.remove();
 }
 
+/**
+ * Generates parameters for a new mandala and selects a new random color palette.
+ */
 function generateMandalaParameters() {
   radii = [];
   shapeTypes = [];
   noiseSeeds = [];
+
+  // Select a new palette from the pre-generated library.
+  currentPalette = random(palettes);
 
   numSegments = floor(random(16, 48));
   strokeW = random(0.5, 3);
