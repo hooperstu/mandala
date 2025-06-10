@@ -50,7 +50,7 @@ function draw() {
   let hue = map(vol, 0, 0.05, 180, 360);
   let dynamicStrokeWeight = map(vol, 0, 0.05, strokeW, strokeW * 5, true);
 
-  // --- New Drawing Logic: Layer by Layer ---
+  // --- Drawing Logic: Layer by Layer ---
   // This is the fundamental change to ensure perfect symmetry.
   // We loop through each LAYER of the mandala first.
   for (let j = 0; j < radii.length; j++) {
@@ -140,16 +140,13 @@ function drawShape(type, finalRadius, r, layerHue, layerStrokeWeight) {
         triangle(0, 0, finalRadius, -10, finalRadius, 10);
       pop();
       break;
-    case 6: // Dotted Circle
+    case 6: // Single Dot
+      // FIX: This shape now draws a single dot at the correct position,
+      // instead of an entire circle of dots, ensuring symmetry.
       push();
         noStroke();
         fill(layerHue, 90, 90, 0.7);
-        for(let k = 0; k < 12; k++) {
-          let angle = k * (360/12);
-          let x = finalRadius * cos(angle);
-          let y = finalRadius * sin(angle);
-          circle(x, y, layerStrokeWeight * 1.5);
-        }
+        circle(finalRadius, 0, layerStrokeWeight * 2);
       pop();
       break;
   }
