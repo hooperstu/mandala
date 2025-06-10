@@ -2,6 +2,7 @@
 let mic;
 let audioStarted = false;
 let overlay;
+let globalRotation = 0; // New variable to control overall rotation
 
 // --- Mandala Parameters ---
 let numSegments;
@@ -41,6 +42,24 @@ function draw() {
   background(0, 0, 0, 0.1); 
   translate(width / 2, height / 2);
 
+  // --- Mouse Interaction Logic ---
+  // Calculate distance of mouse from the centre of the canvas.
+  const maxDist = dist(0, 0, width / 2, height / 2);
+  const mouseDist = dist(mouseX, mouseY, width / 2, height / 2);
+
+  // Map mouse distance to a scale factor for the diameter.
+  // Closer to centre = smaller (min 20% size). Further = larger (max 100% size).
+  const mouseScale = map(mouseDist, 0, maxDist, 0.2, 1.0, true);
+
+  // Map mouse distance to rotation speed.
+  // Closer to centre = faster rotation. Further = slower rotation.
+  const rotationSpeed = map(mouseDist, 0, maxDist, 0.5, 0.01, true);
+  globalRotation += rotationSpeed; // Update the global rotation angle.
+  
+  // Apply the continuous rotation influenced by the mouse.
+  rotate(globalRotation);
+  
+  // --- Audio Interaction Logic ---
   // Get the current volume level from the microphone.
   let vol = mic.getLevel();
   
@@ -58,7 +77,8 @@ function draw() {
   for (let i = 0; i < numSegments; i++) {
     push();
     rotate(i * angleStep);
-    drawMandalaSegment(dynamicStrokeWeight, hue);
+    // Pass the mouseScale factor into the drawing function.
+    drawMandalaSegment(dynamicStrokeWeight, hue, mouseScale);
     pop();
   }
 }
@@ -69,13 +89,16 @@ function draw() {
  * Draws a single segment of the mandala, which is then rotated.
  * @param {number} dynamicStrokeWeight - The base stroke weight based on volume.
  * @param {number} baseHue - The base hue based on volume.
+ * @param {number} mouseScale - The scaling factor based on mouse position.
  */
-function drawMandalaSegment(dynamicStrokeWeight, baseHue) {
+function drawMandalaSegment(dynamicStrokeWeight, baseHue, mouseScale) {
   for (let j = 0; j < radii.length; j++) {
     let r = radii[j];
     let type = shapeTypes[j];
     let noiseFactor = noise(frameCount * 0.005 + noiseSeeds[j]);
     let animatedRadius = r + map(noiseFactor, 0, 1, -20, 20);
+    // Apply the mouse-controlled scale to the final radius.
+    let finalRadius = animatedRadius * mouseScale;
     let layerHue = (baseHue + j * 20) % 360;
 
     push();
@@ -83,7 +106,7 @@ function drawMandalaSegment(dynamicStrokeWeight, baseHue) {
     stroke(layerHue, 90, 90, 0.8);
     
     // Draw the specific shape for this layer of the segment.
-    drawShape(type, animatedRadius, r, layerHue, dynamicStrokeWeight);
+    drawShape(type, finalRadius, r, layerHue, dynamicStrokeWeight);
     pop();
   }
 }
@@ -91,58 +114,58 @@ function drawMandalaSegment(dynamicStrokeWeight, baseHue) {
 /**
  * Draws a specific geometric shape based on its type.
  * @param {number} type - The integer representing the shape type.
- * @param {number} animatedRadius - The radius with noise applied.
- * @param {number} r - The original radius.
+ * @param {number} finalRadius - The final calculated radius for the shape.
+ * @param {number} r - The original base radius (used for some shape calculations).
  * @param {number} layerHue - The hue for this specific layer.
  * @param {number} dynamicStrokeWeight - The current stroke weight.
  */
-function drawShape(type, animatedRadius, r, layerHue, dynamicStrokeWeight) {
+function drawShape(type, finalRadius, r, layerHue, dynamicStrokeWeight) {
   switch (type) {
     case 0: // Ellipses with center dot
-      ellipse(animatedRadius, 0, r * 0.2, r * 0.5);
+      ellipse(finalRadius, 0, r * 0.2, r * 0.5);
       fill(layerHue, 90, 100);
       noStroke();
-      circle(animatedRadius, 0, dynamicStrokeWeight);
+      circle(finalRadius, 0, dynamicStrokeWeight);
       noFill();
       stroke(layerHue, 90, 90, 0.8);
       break;
     case 1: // Lines
-      line(0, 0, animatedRadius, 0);
+      line(0, 0, finalRadius, 0);
       break;
     case 2: // Arcs
-      arc(0, 0, animatedRadius * 1.5, animatedRadius * 1.5, -30, 30);
+      arc(0, 0, finalRadius * 1.5, finalRadius * 1.5, -30, 30);
       break;
     case 3: // Bezier curves
       let controlOffset = r * 0.5;
-      bezier(0, 0, controlOffset, -controlOffset, animatedRadius - controlOffset, -controlOffset, animatedRadius, 0);
+      bezier(0, 0, controlOffset, -controlOffset, finalRadius - controlOffset, -controlOffset, finalRadius, 0);
       break;
     case 4: // Ornate Petal using curves
       noFill();
       curve(
-        animatedRadius, 0,
-        animatedRadius * 0.9, 0,
-        animatedRadius * 0.8, animatedRadius * 0.2,
-        animatedRadius * 0.7, animatedRadius * 0.3
+        finalRadius, 0,
+        finalRadius * 0.9, 0,
+        finalRadius * 0.8, finalRadius * 0.2,
+        finalRadius * 0.7, finalRadius * 0.3
       );
       curve(
-        animatedRadius, 0,
-        animatedRadius * 0.9, 0,
-        animatedRadius * 0.8, -animatedRadius * 0.2,
-        animatedRadius * 0.7, -animatedRadius * 0.3
+        finalRadius, 0,
+        finalRadius * 0.9, 0,
+        finalRadius * 0.8, -finalRadius * 0.2,
+        finalRadius * 0.7, -finalRadius * 0.3
       );
       break;
     case 5: // Triangle Fan
       fill(layerHue, 80, 90, 0.5);
       noStroke();
-      triangle(0, 0, animatedRadius, -10, animatedRadius, 10);
+      triangle(0, 0, finalRadius, -10, finalRadius, 10);
       break;
     case 6: // Dotted Circle
       noFill();
       stroke(layerHue, 90, 90, 0.7);
       for(let k = 0; k < 12; k++) {
         let angle = k * (360/12);
-        let x = animatedRadius * cos(angle);
-        let y = animatedRadius * sin(angle);
+        let x = finalRadius * cos(angle);
+        let y = finalRadius * sin(angle);
         circle(x, y, dynamicStrokeWeight * 1.5);
       }
       break;
