@@ -41,21 +41,22 @@ function draw() {
   background(0, 0, 0, 0.1); 
   translate(width / 2, height / 2);
 
-  // --- Mouse Interaction ---
+  // --- Mouse still controls rotation speed ---
   const maxDist = dist(0, 0, width / 2, height / 2);
   const mouseDist = dist(mouseX, mouseY, width / 2, height / 2);
-  const mouseScale = map(mouseDist, 0, maxDist, 0.2, 1.0, true);
   const rotationSpeed = map(mouseDist, 0, maxDist, 0.5, 0.01, true);
   globalRotation += rotationSpeed;
   
   rotate(globalRotation);
   
   // --- Audio Interaction ---
-  // Volume now controls brightness and saturation for a less jarring effect.
   let vol = mic.getLevel();
+  
+  // Volume now controls brightness, saturation, and the new size scale.
   let dynamicBrightness = map(vol, 0, 0.1, 60, 100, true);
   let dynamicSaturation = map(vol, 0, 0.1, 70, 100, true);
   let dynamicStrokeWeight = map(vol, 0, 0.05, strokeW, strokeW * 5, true);
+  let volumeScale = map(vol, 0, 0.1, 0.3, 1.2, true); // <-- New size control
 
   // --- Drawing Logic: Layer by Layer ---
   for (let j = 0; j < radii.length; j++) {
@@ -64,7 +65,9 @@ function draw() {
     let type = shapeTypes[j];
     let noiseFactor = noise(frameCount * 0.005 + noiseSeeds[j]);
     let animatedRadius = r + map(noiseFactor, 0, 1, -20, 20);
-    let finalRadius = animatedRadius * mouseScale;
+    
+    // The final radius is now scaled by volume, not mouse position.
+    let finalRadius = animatedRadius * volumeScale;
     
     // Get the hue for this layer from the current, randomly selected palette.
     let layerHue = currentPalette[j % currentPalette.length];
