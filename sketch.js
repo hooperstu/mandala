@@ -123,23 +123,23 @@ function drawShape(type, finalRadius, r, layerHue, dynamicStrokeWeight) {
   switch (type) {
     case 0: // Ellipses with center dot
       ellipse(finalRadius, 0, r * 0.2, r * 0.5);
+      push();
       fill(layerHue, 90, 100);
       noStroke();
       circle(finalRadius, 0, dynamicStrokeWeight);
-      noFill();
-      stroke(layerHue, 90, 90, 0.8);
+      pop();
       break;
     case 1: // Lines
       line(0, 0, finalRadius, 0);
       break;
     case 2: // Arcs
+      noFill();
       arc(0, 0, finalRadius * 1.5, finalRadius * 1.5, -30, 30);
       break;
     case 3: // Symmetrical Bezier curves
+      noFill();
       let controlOffset = r * 0.5;
-      // Draw the first curve bending one way.
       bezier(0, 0, controlOffset, -controlOffset, finalRadius - controlOffset, -controlOffset, finalRadius, 0);
-      // Draw the second, mirrored curve bending the other way.
       bezier(0, 0, controlOffset, controlOffset, finalRadius - controlOffset, controlOffset, finalRadius, 0);
       break;
     case 4: // Ornate Petal using curves
@@ -158,13 +158,15 @@ function drawShape(type, finalRadius, r, layerHue, dynamicStrokeWeight) {
       );
       break;
     case 5: // Triangle Fan
+      // FIX: This case now uses push() and pop() to contain its style changes.
+      push();
       fill(layerHue, 80, 90, 0.5);
       noStroke();
       triangle(0, 0, finalRadius, -10, finalRadius, 10);
+      pop();
       break;
     case 6: // Dotted Circle
       noFill();
-      stroke(layerHue, 90, 90, 0.7);
       for(let k = 0; k < 12; k++) {
         let angle = k * (360/12);
         let x = finalRadius * cos(angle);
