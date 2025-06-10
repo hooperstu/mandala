@@ -135,9 +135,12 @@ function drawShape(type, finalRadius, r, layerHue, dynamicStrokeWeight) {
     case 2: // Arcs
       arc(0, 0, finalRadius * 1.5, finalRadius * 1.5, -30, 30);
       break;
-    case 3: // Bezier curves
+    case 3: // Symmetrical Bezier curves
       let controlOffset = r * 0.5;
+      // Draw the first curve bending one way.
       bezier(0, 0, controlOffset, -controlOffset, finalRadius - controlOffset, -controlOffset, finalRadius, 0);
+      // Draw the second, mirrored curve bending the other way.
+      bezier(0, 0, controlOffset, controlOffset, finalRadius - controlOffset, controlOffset, finalRadius, 0);
       break;
     case 4: // Ornate Petal using curves
       noFill();
