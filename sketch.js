@@ -1,164 +1,206 @@
+// --- Global Variables ---
 let mic;
 let audioStarted = false;
 let overlay;
 
-// Mandala parameters
+// --- Mandala Parameters ---
 let numSegments;
 let strokeW;
 let radii = [];
 let shapeTypes = [];
 let noiseSeeds = [];
 
-// --- Variables for continuous ambient baseline ---
-let smoothedVolume = 0;
-let ambientBaseline = 0;
-// We'll store the last couple of seconds of volume readings
-let volumeHistory = []; 
-// The number of frames to average over for the baseline (e.g., 2 seconds at 60fps)
-const baselineSampleCount = 120; 
-
+// --- p5.js Setup Function ---
+// This runs once when the sketch starts.
 function setup() {
   createCanvas(windowWidth, windowHeight);
   colorMode(HSB, 360, 100, 100, 1);
   angleMode(DEGREES);
   background(0);
 
-  // --- Create overlay ---
-  // The text is simplified as there's no longer a distinct calibration phase.
-  overlay = createDiv("Tap to start");
-  overlay.id("overlay");
+  // Create the initial overlay to prompt user interaction for audio.
+  overlay = createDiv('Tap or click to start');
+  overlay.id('overlay');
   overlay.mousePressed(startAudio);
 
-  // --- Generate initial random parameters for the mandala ---
+  // Generate the first mandala pattern.
   randomSeed(Math.floor(random(10000)));
   noiseSeed(Math.floor(random(10000)));
   generateMandalaParameters();
 }
 
-function startAudio() {
-  // This function is called only once by the overlay
-  userStartAudio();
-  mic = new p5.AudioIn();
-  mic.start();
-  audioStarted = true;
-  overlay.remove(); // Remove overlay immediately
-}
-
-function generateMandalaParameters() {
-  // Clear previous parameters to ensure a fresh start
-  radii = [];
-  shapeTypes = [];
-  noiseSeeds = [];
-
-  // Generate new random parameters
-  numSegments = floor(random(12, 36));
-  strokeW = random(0.5, 3);
-  let numLayers = floor(random(5, 15));
-
-  for (let i = 0; i < numLayers; i++) {
-    radii.push(random(50, min(width, height) * 0.45) * (i * 0.2 + 1));
-    shapeTypes.push(floor(random(4)));
-    noiseSeeds.push(random(1000));
-  }
-}
-
+// --- p5.js Draw Function ---
+// This runs in a continuous loop.
 function draw() {
-  // Wait until audio is started
+  // Don't draw anything until the user has started the audio.
   if (!audioStarted) {
     return;
   }
-  
-  background(0, 0, 0, 0.1); // Trail effect
+
+  // Use a semi-transparent background to create a trail effect.
+  background(0, 0, 0, 0.1); 
   translate(width / 2, height / 2);
 
-  // --- Continuously update the ambient baseline ---
-  let rawVol = mic.getLevel();
-  volumeHistory.push(rawVol);
+  // Get the current volume level from the microphone.
+  let vol = mic.getLevel();
   
-  // Keep the history array at a fixed size by removing the oldest value
-  if (volumeHistory.length > baselineSampleCount) {
-    volumeHistory.shift();
-  }
-  
-  // Calculate the average of the recent volume history
-  if (volumeHistory.length > 0) {
-      let sum = volumeHistory.reduce((a, b) => a + b, 0);
-      let avg = sum / volumeHistory.length;
-      // Set the baseline slightly above the average to avoid reacting to tiny fluctuations
-      ambientBaseline = avg * 1.2;
-  }
-  
-  // Smooth the raw volume to make changes less jittery
-  smoothedVolume = lerp(smoothedVolume, rawVol, 0.2); 
-  // Calculate how much the current smoothed volume is above the dynamic ambient baseline
-  let volAboveBaseline = max(0, smoothedVolume - ambientBaseline);
+  // Map the volume to visual properties (hue and stroke weight).
+  let hue = map(vol, 0, 0.05, 180, 360);
+  let dynamicStrokeWeight = map(vol, 0, 0.05, strokeW, strokeW * 5, true);
 
-  // --- Map the volume ABOVE baseline to visuals ---
-  let hue = map(volAboveBaseline, 0, 0.1, 180, 360);
-  let dynamicStrokeWeight = map(volAboveBaseline, 0, 0.1, strokeW, strokeW * 7, true);
-
+  // Set the base drawing style for the frame.
   strokeWeight(dynamicStrokeWeight);
   stroke(hue, 90, 90, 0.8);
   noFill();
 
+  // Draw the complete mandala by rotating around the center.
   let angleStep = 360 / numSegments;
-
   for (let i = 0; i < numSegments; i++) {
     push();
     rotate(i * angleStep);
-
-    for (let j = 0; j < radii.length; j++) {
-      let r = radii[j];
-      let type = shapeTypes[j];
-      let noiseFactor = noise(frameCount * 0.005 + noiseSeeds[j]);
-      let animatedRadius = r + map(noiseFactor, 0, 1, -20, 20);
-
-      push();
-      strokeWeight(
-        map(j, 0, radii.length, dynamicStrokeWeight, dynamicStrokeWeight * 0.5)
-      );
-      let layerHue = (hue + j * 20) % 360;
-      stroke(layerHue, 90, 90, 0.8);
-
-      switch (type) {
-        case 0: // Ellipses
-          ellipse(animatedRadius, 0, r * 0.2, r * 0.5);
-          break;
-        case 1: // Lines
-          line(0, 0, animatedRadius, 0);
-          break;
-        case 2: // Arcs
-          arc(0, 0, animatedRadius * 1.5, animatedRadius * 1.5, -30, 30);
-          break;
-        case 3: // Bezier curves
-          let controlOffset = r * 0.5;
-          bezier(
-            0,
-            0,
-            controlOffset,
-            -controlOffset,
-            animatedRadius - controlOffset,
-            -controlOffset,
-            animatedRadius,
-            0
-          );
-          break;
-      }
-      pop();
-    }
+    drawMandalaSegment(dynamicStrokeWeight, hue);
     pop();
   }
 }
 
+// --- Helper Functions ---
+
+/**
+ * Draws a single segment of the mandala, which is then rotated.
+ * @param {number} dynamicStrokeWeight - The base stroke weight based on volume.
+ * @param {number} baseHue - The base hue based on volume.
+ */
+function drawMandalaSegment(dynamicStrokeWeight, baseHue) {
+  for (let j = 0; j < radii.length; j++) {
+    let r = radii[j];
+    let type = shapeTypes[j];
+    let noiseFactor = noise(frameCount * 0.005 + noiseSeeds[j]);
+    let animatedRadius = r + map(noiseFactor, 0, 1, -20, 20);
+    let layerHue = (baseHue + j * 20) % 360;
+
+    push();
+    strokeWeight(map(j, 0, radii.length, dynamicStrokeWeight, dynamicStrokeWeight * 0.5));
+    stroke(layerHue, 90, 90, 0.8);
+    
+    // Draw the specific shape for this layer of the segment.
+    drawShape(type, animatedRadius, r, layerHue, dynamicStrokeWeight);
+    pop();
+  }
+}
+
+/**
+ * Draws a specific geometric shape based on its type.
+ * @param {number} type - The integer representing the shape type.
+ * @param {number} animatedRadius - The radius with noise applied.
+ * @param {number} r - The original radius.
+ * @param {number} layerHue - The hue for this specific layer.
+ * @param {number} dynamicStrokeWeight - The current stroke weight.
+ */
+function drawShape(type, animatedRadius, r, layerHue, dynamicStrokeWeight) {
+  switch (type) {
+    case 0: // Ellipses with center dot
+      ellipse(animatedRadius, 0, r * 0.2, r * 0.5);
+      fill(layerHue, 90, 100);
+      noStroke();
+      circle(animatedRadius, 0, dynamicStrokeWeight);
+      noFill();
+      stroke(layerHue, 90, 90, 0.8);
+      break;
+    case 1: // Lines
+      line(0, 0, animatedRadius, 0);
+      break;
+    case 2: // Arcs
+      arc(0, 0, animatedRadius * 1.5, animatedRadius * 1.5, -30, 30);
+      break;
+    case 3: // Bezier curves
+      let controlOffset = r * 0.5;
+      bezier(0, 0, controlOffset, -controlOffset, animatedRadius - controlOffset, -controlOffset, animatedRadius, 0);
+      break;
+    case 4: // Ornate Petal using curves
+      noFill();
+      curve(
+        animatedRadius, 0,
+        animatedRadius * 0.9, 0,
+        animatedRadius * 0.8, animatedRadius * 0.2,
+        animatedRadius * 0.7, animatedRadius * 0.3
+      );
+      curve(
+        animatedRadius, 0,
+        animatedRadius * 0.9, 0,
+        animatedRadius * 0.8, -animatedRadius * 0.2,
+        animatedRadius * 0.7, -animatedRadius * 0.3
+      );
+      break;
+    case 5: // Triangle Fan
+      fill(layerHue, 80, 90, 0.5);
+      noStroke();
+      triangle(0, 0, animatedRadius, -10, animatedRadius, 10);
+      break;
+    case 6: // Dotted Circle
+      noFill();
+      stroke(layerHue, 90, 90, 0.7);
+      for(let k = 0; k < 12; k++) {
+        let angle = k * (360/12);
+        let x = animatedRadius * cos(angle);
+        let y = animatedRadius * sin(angle);
+        circle(x, y, dynamicStrokeWeight * 1.5);
+      }
+      break;
+  }
+}
+
+/**
+ * Initialises the audio input after a user gesture.
+ */
+function startAudio() {
+  userStartAudio();
+  mic = new p5.AudioIn();
+  mic.start();
+  audioStarted = true;
+  overlay.remove();
+}
+
+/**
+ * Generates a new set of random parameters for the mandala.
+ */
+function generateMandalaParameters() {
+  // Clear previous parameters
+  radii = [];
+  shapeTypes = [];
+  noiseSeeds = [];
+
+  // Generate new parameters for complexity and variety
+  numSegments = floor(random(16, 48));
+  strokeW = random(0.5, 3);
+  let numLayers = floor(random(8, 20));
+  
+  for (let i = 0; i < numLayers; i++) {
+    radii.push(random(50, min(width, height) * 0.45) * (i * 0.15 + 1));
+    shapeTypes.push(floor(random(7))); // More shape options available
+    noiseSeeds.push(random(1000));
+  }
+}
+
+// --- Event Handlers ---
+
+/**
+ * p5.js built-in function that is called on any click.
+ */
 function mousePressed() {
+  // We only want to regenerate AFTER the initial audio start
   if (audioStarted) {
+    // Use a new random seed for a completely new pattern
     randomSeed(millis());
     noiseSeed(millis() + 1000);
     generateMandalaParameters();
   }
 }
 
+/**
+ * p5.js built-in function that is called when the window is resized.
+ */
 function windowResized() {
   resizeCanvas(windowWidth, windowHeight);
-  generateMandalaParameters();
+  // Regenerate the mandala to fit the new size
+  generateMandalaParameters(); 
 }
