@@ -1,66 +1,51 @@
-# Welcome to p5.js
+Interactive Mandala Generator
+Project Overview
+This is a web application that uses the p5.js library to generate intricate, randomised mandala patterns in your web browser. The application listens to your computer's microphone input and uses the volume to change the colours and thickness of the mandala in real-time.
 
-You have downloaded the complete p5.js library ZIP file, yay!
+This project was created as an exploration of generative art and interactive web experiences. It demonstrates the power of p5.js for both visual creation and for interfacing with browser hardware like the microphone.
 
-# Contents of the p5 folder
+Features
+Generative Art: Every mandala pattern is unique, created from a random set of parameters when the page loads.
 
-* p5.js file
-* p5.min.js file
-* addons folder
-  * p5.sound.js
-  * p5.sound.min.js
-* empty-example folder
-  * index.html
-  * p5.js
-  * p5.sound.js
-  * sketch.js
+Audio-Reactive: The colours and line weights of the mandala shift and change based on the volume of sound picked up by your microphone. The louder the sound, the more dramatic the change.
 
-## p5.js
+Interactive: Simply click anywhere on the canvas to generate a completely new, random mandala pattern.
 
-This file stores the complete p5.js library. It is easy to read by humans, so feel free to open it and explore its contents. It also has a friendly error system, which helps new programmers with common user errors.
+Responsive: The canvas will automatically resize to fit your browser window.
 
-## p5.min.js
+How to Run This Project
+Because this application requires access to the microphone, modern web browsers require it to be run from a secure context (https:// or a local server) for security reasons. You cannot simply open the index.html file directly in your browser from your file system.
 
-This file is a minified version of the p5.js file. It is a lighter version, with the same functionalities, but smaller file size. This minified version is harder to read for humans, and does not include the friendly error system.
+The easiest way to run this locally is to use a simple local server.
 
-## addons folder
+Download the Files: Make sure index.html, style.css, and sketch.js are all in the same folder.
 
-The addons folder includes additional p5.js related libraries, in both original versions and minified versions.
+Start a Local Server:
 
-### p5.sound.js, p5.sound.min.js
+If you have Python installed, open a terminal or command prompt in the folder containing the files and run one of the following commands:
 
-p5.sound extends p5.js with Web Audio functionality including audio input, playback, analysis, and synthesis.
+For Python 3: python -m http.server
 
-## empty-example folder
+For Python 2: python -m SimpleHTTPServer
 
-This is an empty example of a website. The folder includes the file for the website, index.html, the p5.js library, other related p5.js libraries, and a template starting point for your p5.js sketch, called sketch.js.
+If you have Node.js installed, you can use the serve package. First, install it globally: npm install -g serve. Then, in the project folder, run: serve.
 
-### index.html
+Open in Browser: Open your web browser and navigate to http://localhost:8000 (or the address provided by your server command).
 
-index.html is a template for an HTML file. This index.html first imports the libraries included in the folder (p5.js, p5.sound.js) then loads and executes the file sketch.js which is where you can write your own code.
+Grant Permission: The browser will ask for permission to use your microphone. You must grant permission for the audio-reactive features to work.
 
-### sketch.js
+File Structure
+index.html: The main HTML file. It sets up the page structure and loads the required p5.js libraries and the sketch.js file.
 
-The sketch.js is a template for the p5.js sketch, with the functions setup() and draw() that you can complete.
+style.css: Contains the styling for the page, including the initial overlay and the full-screen canvas.
 
-## README.txt
+sketch.js: This is the core of the application. All the p5.js logic for drawing the mandala, handling audio input, and managing user interaction resides here.
 
-This README file formatted with Markdown :)
+Customisation
+You can easily modify the behaviour of the mandala by editing the sketch.js file.
 
-# What's next?
+Sensitivity: In the draw() function, find the map() functions that set the hue and dynamicStrokeWeight. The second-to-last number in these functions (e.g., 0.05) controls the volume sensitivity. A smaller number makes it more sensitive.
 
-If you need more information to help get you started, please refer to our website:  
-https://p5js.org/tutorials/get-started/ and https://p5js.org/tutorials/
+Shapes: In the generateMandalaParameters() function, you can change the shapeTypes array to include different shapes or alter the logic in the draw() function's switch statement to create new visual elements.
 
-An online reference to the p5.js library is available here:  
-https://p5js.org/reference/
-
-In order to run your website (including the empty-example), you need to enable a local server, please see this tutorial in our wiki:  
-https://github.com/processing/p5.js/wiki/Local-server
-
-p5.js is a community and p5.js is built by contributions. If you want to learn more about us, visit:  
-https://p5js.org/community/
-
-# License
-
-The p5.js library is free software; you can redistribute it and/or modify it under the terms of the GNU Lesser General Public License as published by the Free Software Foundation, version 2.1.
+Colours: In the draw() function, you can change the range of the hue variable in the map() function to produce different colour palettes.
