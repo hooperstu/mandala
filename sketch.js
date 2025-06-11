@@ -20,6 +20,9 @@ function setup() {
   angleMode(DEGREES);
   background(0);
 
+  // Hide the default mouse cursor.
+  noCursor();
+
   overlay = createDiv('Tap or click to start');
   overlay.id('overlay');
   overlay.mousePressed(startAudio);
